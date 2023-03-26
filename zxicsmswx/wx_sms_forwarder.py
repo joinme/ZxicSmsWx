@@ -16,7 +16,7 @@ class WxSmsForwarder:
             'Content-Type': 'application/json'
         })
         self.config = config
-        self.wx_url = f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={self.config['wx_key']}/"
+        self.wx_url = f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={self.config['wx_key']}"
         self.LOOP_ENABLED = True
         self.init_modems()
 
@@ -32,7 +32,7 @@ class WxSmsForwarder:
                 self.do_modem_init(i)
             except:
                 i['modem_status'] = 'offline'
-                self.send_telegram_message(f"[设备掉线]\n设备名称：{i['name']}，Modem IP：{i['modem_ip']}")
+                self.send_wx_message(f"[设备掉线]\n设备名称：{i['name']}，Modem IP：{i['modem_ip']}")
             self.sms_modems.append(i)
 
     def start(self):
@@ -40,18 +40,8 @@ class WxSmsForwarder:
         cmd_recv_thread.start()
         self.do_loop_get_sms_task()
 
-    def get_telegram_commands(self):
-        resp = self.session.get(
-            self.telegram_url + 'getUpdates',
-            timeout=self.TIMEOUT
-        )
-        commands = json.loads(resp.text)
-        if commands['ok']:
-            return commands
-        else:
-            raise RuntimeError('Unknown error from Telegram api server: ' + resp.text)
-
-    def send_telegram_message(self, content):
+    def send_wx_message(self, content):
+        print(self.wx_url)
         try:
             resp = self.session.post(
                 self.wx_url,
@@ -63,11 +53,14 @@ class WxSmsForwarder:
                     }
                 })
             )
+            print(resp.text)
             result = json.loads(resp.text)
-        except:
+        except Exception as e:
+            print(str(e))
             print('Send Telegram message failed.')
             return None
-        if result['ok']:
+        print(result)
+        if result['errmsg'] == 'ok':
             return result
         else:
             raise RuntimeError('Unknown error from Telegram api server: ' + resp.text)
@@ -85,12 +78,12 @@ class WxSmsForwarder:
             except:
                 if ctrl['modem_status'] == 'online':
                     ctrl['modem_status'] = 'offline'
-                    self.send_telegram_message(f"[设备掉线]\n设备名称：{ctrl['name']}，Modem IP：{ctrl['modem_ip']}")
+                    self.send_wx_message(f"[设备掉线]\n设备名称：{ctrl['name']}，Modem IP：{ctrl['modem_ip']}")
                 continue
             if ctrl['modem_status'] == 'offline':
                 ctrl['modem_status'] = 'online'
                 self.do_modem_init(ctrl)
-                self.send_telegram_message(f"[设备上线]\n设备名称：{ctrl['name']}，Modem IP：{ctrl['modem_ip']}")
+                self.send_wx_message(f"[设备上线]\n设备名称：{ctrl['name']}，Modem IP：{ctrl['modem_ip']}")
             for sms in sms_list:
                 if sms['tag'] == '2':
                     msg = f"✅通过 {ctrl['name']} 发送短信给 {sms['number']} 成功。"
@@ -106,7 +99,7 @@ class WxSmsForwarder:
                         continue
                     self.__MSG_IDS.pop(msgid)
                     msg = f"[收到短信]\n接收设备：{ctrl['name']}\n来自：{sms['number']}\n收到日期：{sms['date']}\n{sms['content']}"
-                if self.send_telegram_message(msg) != None:
+                if self.send_wx_message(msg) != None:
                     ctrl['controller'].delete_sms(sms['id'])
     
     def do_process_commands_task(self):
@@ -135,7 +128,7 @@ class WxSmsForwarder:
             except:
                 msg += '设备状态无法取得数据。\n'
             msg += '\n'
-        self.send_telegram_message(msg)
+        self.send_wx_message(msg)
 
     def do_loop_get_sms_task(self):
         while self.LOOP_ENABLED:

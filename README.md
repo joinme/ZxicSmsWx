@@ -1,7 +1,7 @@
 # 基于中兴方案的 LTE USB Dongle 的短信转发器
 
 ## 配置文件
-
+https://github.com/SmsForwardCenter/ZxicSmsFwd
 配置文件以 JSON 为主要结构，下面是一个配置文件的范本。
 
 ```
